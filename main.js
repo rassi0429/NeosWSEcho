@@ -5,11 +5,15 @@ const server = http.createServer();
 const wss = new WebSocket.Server({ noServer: true });
 
 const roomMap = new Map()
+let clientCount = 0
 
 
 wss.on('connection', (ws, request) => {
 
     const room = request.url
+
+    clientCount += 1
+
 
     if (!roomMap.has(room)) {
         roomMap.set(room, [ws])
@@ -17,19 +21,67 @@ wss.on('connection', (ws, request) => {
         roomMap.set(room, [ws, ...roomMap.get(room)])
     }
 
+    console.log(`${new Date().toLocaleString()} \t Client connected: ${room} :count ${roomMap.get(room).length}`)
+
     ws.on('message', (message) => {
         const room = roomMap.get(request.url)
         if (!room) return
-        room.forEach((client) => {
+        room.filter(d => !d._closeFrameSent).forEach((client) => {
             client.send(message.toString())
         })
     });
+
+    ws.on("close", () => {
+        console.log(`${new Date().toLocaleString()} \t Client disconnected: ${room}`)
+    })
 });
+
 
 server.on('upgrade', function (request, socket, head) {
     wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit('connection', ws, request);
     });
 });
+
+setInterval(cleanRoomMap, 10 * 1000)
+
+function cleanRoomMap() {
+    console.log("RoomMap Clean Start")
+    let cc = 0
+    roomMap.forEach((clients, room) => {
+        const newClients = clients.filter(d => !d._closeFrameSent)
+        cc += newClients.length
+        const diff = clients.length - newClients.length
+        if (diff !== 0) {
+            roomMap.set(room, newClients)
+            console.log(`Room ${room} was cleaned ${diff} clients`)
+        }
+    })
+    clientCount = cc
+    console.log("RoomMap Clean Done")
+}
+
+// to prometheus
+server.on("request", (req, res) => {
+    if (req.method !== "GET") {
+        res.writeHead(405, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('method not allowed');
+        return
+    }
+
+    const roomCountText = makeGaugeText("room_count", roomMap.size)
+    const clientCountText = makeGaugeText("client_count", clientCount)
+    
+
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end([roomCountText,clientCountText].join("\n"));
+    return
+})
+
+const makeGaugeText = (name, data) => {
+    return `# HELP wsecho_${name} wsecho ${name} value
+# TYPE wsecho_${name} gauge
+wsecho_${name} ${data}`
+}
 
 server.listen(3000);
