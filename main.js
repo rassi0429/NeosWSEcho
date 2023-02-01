@@ -91,8 +91,8 @@ server.on("request", (req, res) => {
         return
     }
 
-    const roomCountText = makeGaugeText("room_count", roomMap.size)
-    const clientCountText = makeGaugeText("client_count", clientCount)
+    const roomCountText = makeGaugeText("rooms", roomMap.size)
+    const clientCountText = makeGaugeText("clients", clientCount)
 
 
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
