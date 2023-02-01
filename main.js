@@ -39,7 +39,7 @@ wss.on('connection', (ws, request) => {
     ws.on('message', (message) => {
         const room = roomMap.get(request.url)
         if (!room) return
-        room.filter(d => !d.isAlive).forEach((client) => {
+        room.filter(d => d.isAlive).forEach((client) => {
             client.send(message.toString())
         })
     });
@@ -64,7 +64,7 @@ function cleanRoomMap() {
     console.log("RoomMap Clean Start")
     let cc = 0
     roomMap.forEach((clients, room) => {
-        const newClients = clients.filter(d => !d.isAlive)
+        const newClients = clients.filter(d => d.isAlive)
         cc += newClients.length
         const diff = clients.length - newClients.length
         if (diff !== 0) {
