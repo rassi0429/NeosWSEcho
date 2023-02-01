@@ -13,6 +13,7 @@ wss.on('connection', (ws, request) => {
     const room = request.url
 
     clientCount += 1
+    ws.isAlive = true;
 
 
     if (!roomMap.has(room)) {
@@ -23,15 +24,29 @@ wss.on('connection', (ws, request) => {
 
     console.log(`${new Date().toLocaleString()} \t Client connected: ${room} :count ${roomMap.get(room).length}`)
 
+    ws.checkAlive = false
+    ws.on('pong', () => { ws.checkAlive = true });
+
+    const interval = setInterval(() => {
+        if(!ws.checkAlive) {
+            ws.isAlive = false
+        }
+
+        ws.checkAlive = false
+        ws.ping()
+    }, 3000)
+
     ws.on('message', (message) => {
         const room = roomMap.get(request.url)
         if (!room) return
-        room.filter(d => !d._closeFrameSent).forEach((client) => {
+        room.filter(d => !d.isAlive).forEach((client) => {
             client.send(message.toString())
         })
     });
 
     ws.on("close", () => {
+        clearInterval(interval)
+        ws.isAlive = false
         console.log(`${new Date().toLocaleString()} \t Client disconnected: ${room}`)
     })
 });
@@ -49,11 +64,11 @@ function cleanRoomMap() {
     console.log("RoomMap Clean Start")
     let cc = 0
     roomMap.forEach((clients, room) => {
-        const newClients = clients.filter(d => !d._closeFrameSent)
+        const newClients = clients.filter(d => !d.isAlive)
         cc += newClients.length
         const diff = clients.length - newClients.length
         if (diff !== 0) {
-            if(newClients.length === 0) {
+            if (newClients.length === 0) {
                 roomMap.delete(room)
                 console.log(`Room ${room} was deleted dut to no clients`)
                 return
@@ -78,10 +93,10 @@ server.on("request", (req, res) => {
 
     const roomCountText = makeGaugeText("room_count", roomMap.size)
     const clientCountText = makeGaugeText("client_count", clientCount)
-    
+
 
     res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-    res.end([roomCountText,clientCountText].join("\n"));
+    res.end([roomCountText, clientCountText].join("\n"));
     return
 })
 
