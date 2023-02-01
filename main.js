@@ -25,14 +25,14 @@ wss.on('connection', (ws, request) => {
     console.log(`${new Date().toLocaleString()} \t Client connected: ${room} :count ${roomMap.get(room).length}`)
 
     ws.checkAlive = false
-    ws.on('pong', () => { ws.checkAlive = true });
+    ws.on('pong', () => { ws.checkAlive = false });
 
     const interval = setInterval(() => {
-        if(!ws.checkAlive) {
+        if(ws.checkAlive) {
             ws.isAlive = false
         }
 
-        ws.checkAlive = false
+        ws.checkAlive = true
         ws.ping()
     }, 3000)
 
