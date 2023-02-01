@@ -53,11 +53,18 @@ function cleanRoomMap() {
         cc += newClients.length
         const diff = clients.length - newClients.length
         if (diff !== 0) {
+            if(newClients.length === 0) {
+                roomMap.delete(room)
+                console.log(`Room ${room} was deleted dut to no clients`)
+                return
+            }
             roomMap.set(room, newClients)
             console.log(`Room ${room} was cleaned ${diff} clients`)
         }
+
     })
     clientCount = cc
+    console.log(clientCount)
     console.log("RoomMap Clean Done")
 }
 
