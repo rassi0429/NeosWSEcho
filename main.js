@@ -40,8 +40,19 @@ wss.on('connection', (ws, request) => {
         const room = roomMap.get(request.url)
         if (!room) return
         room.filter(d => d.isAlive).forEach((client) => {
-            client.send(message.toString())
+            try {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(message)
+                }
+            } catch (error) {
+                console.error('Error sending message:', error)
+            }
         })
+    });
+
+    ws.on('error', (error) => {
+        console.error(`WebSocket error in room ${room}:`, error)
+        ws.isAlive = false
     });
 
     ws.on("close", () => {
