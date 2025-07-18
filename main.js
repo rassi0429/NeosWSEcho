@@ -39,15 +39,39 @@ wss.on('connection', (ws, request) => {
     ws.on('message', (message) => {
         const room = roomMap.get(request.url)
         if (!room) return
+        
+        // メッセージの検証とサニタイズ
+        let processedMessage;
+        try {
+            if (Buffer.isBuffer(message)) {
+                // バイナリデータの場合、有効なUTF-8文字列に変換を試行
+                processedMessage = message.toString('utf8').replace(/\uFFFD/g, '');
+                // 空文字列になった場合はスキップ
+                if (processedMessage.length === 0) {
+                    console.log('Skipped invalid binary message');
+                    return;
+                }
+            } else {
+                processedMessage = message.toString();
+            }
+            
+            // 無効な制御文字を除去
+            processedMessage = processedMessage.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+            
+        } catch (error) {
+            console.error('Error processing message:', error);
+            return;
+        }
+        
         room.filter(d => d.isAlive).forEach((client) => {
             try {
                 if (client.readyState === WebSocket.OPEN) {
-                    client.send(message)
+                    client.send(processedMessage);
                 }
             } catch (error) {
-                console.error('Error sending message:', error)
+                console.error('Error sending message:', error);
             }
-        })
+        });
     });
 
     ws.on('error', (error) => {
